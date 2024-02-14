@@ -3,6 +3,7 @@
 from arsenal import Integerizer, colors
 from collections import defaultdict
 from functools import lru_cache
+from graphviz import Digraph
 
 
 def dfs(Ps, arcs):
@@ -69,7 +70,6 @@ class FSA:
         return self.graphviz()._repr_image_svg_xml()
 
     def graphviz(self, show_label=True):
-        from graphviz import Digraph
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
             node_attr=dict(
