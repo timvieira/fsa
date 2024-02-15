@@ -1,5 +1,3 @@
-# TODO: fsa should move into utilities since it is not a semiring - it is a data
-# structure that supports the semiring for formal languages
 from arsenal import Integerizer, colors
 from collections import defaultdict
 from functools import lru_cache
@@ -479,13 +477,6 @@ class FSA:
                 if (r,s) not in done:
                     stack.append((r,s))
 
-        #print('-----')
-        #print(iso)
-        #print(self)
-        #print(self.rename(lambda x: iso.get(x, -1)))
-        #print(other)
-        #print('-----')
-
         return self.rename(iso.get) == other
 
     def to_regex(self):
@@ -685,4 +676,3 @@ FSA.one = one = FSA()
 one.add_start(0); one.add_stop(0)
 
 FSA.zero = zero = FSA()
-
