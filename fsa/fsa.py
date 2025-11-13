@@ -13,7 +13,7 @@ def dfs(Ps, arcs):
         for a, Q in arcs(P):
             if Q not in m.nodes:
                 stack.append(Q)
-                m.nodes.add(P)
+                m.nodes.add(Q)
             m.add(P, a, Q)
     return m
 
@@ -21,7 +21,12 @@ def dfs(Ps, arcs):
 _frozenset = frozenset
 class frozenset(_frozenset):
     def __repr__(self):
-        return '{%s}' % (','.join(str(x) for x in sorted(self)))
+        return '{%s}' % (','.join(str(x) for x in sorted_robust(self)))
+
+
+
+def sorted_robust(xs):
+    return sorted(xs, key=lambda x: (type(x).__name__, x))
 
 
 class FSA:
@@ -52,22 +57,23 @@ class FSA:
 
     def __str__(self):
         x = ['{']   # todo: better print; include start/stop
-        for s in sorted(self.nodes):
+        for s in sorted_robust(self.nodes):
             ss = f'{s}'
             if s in self.start:
                 ss = f'^{ss}'
             if s in self.stop:
                 ss = f'{ss}$'
             x.append(f'  {ss}:')
-            for a, t in sorted(self.arcs(s)):
+            for a, t in sorted_robust(self.arcs(s)):
                 x.append(f'    {a} -> {t}')
         x.append('}')
         return '\n'.join(x)
 
-    def _repr_html_(self):
-        return self.graphviz()._repr_image_svg_xml()
+    def _repr_mimebundle_(self, *args, **kwargs):
+        return self.graphviz()._repr_mimebundle_(*args, **kwargs)
 
     def graphviz(self, show_label=True):
+        import html
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
             node_attr=dict(
@@ -92,14 +98,14 @@ class FSA:
         for i in self.start:
             g.edge(start, str(f(i)), label='')
 
-        for i in sorted(self.nodes):
+        for i in sorted_robust(self.nodes):
             shape = 'circle'
             if i in self.stop: shape = 'doublecircle'
             label = str(i) if show_label else ''
             #if i in self.start: label = '*'
             g.node(str(f(i)), label=label, shape=shape)
-            for a, j in sorted(self.arcs(i)):
-                g.edge(str(f(i)), str(f(j)), label=str(a))
+            for a, j in sorted_robust(self.arcs(i)):
+                g.edge(str(f(i)), str(f(j)), label=html.escape(str(a).replace(' ', '␣')))
 
         return g
 
@@ -279,8 +285,6 @@ class FSA:
 
         for i in self.stop:
             m.add_stop(i)
-            for k in eps_accessible(i):
-                m.add_stop(k)
 
         return m
 

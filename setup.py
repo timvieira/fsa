@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='fsa',
-    version='0.1',
+    version='0.1.2',
     description=(
         "Finite-state automata"
     ),

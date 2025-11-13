@@ -3,7 +3,7 @@ from fsa import FSA, zero, one
 
 def test_visualization():
     a,b = map(FSA.lift, 'ab')
-    ((a+b).star())._repr_html_()
+    ((a+b).star())._repr_mimebundle_()
 
 
 def test_intersection():
