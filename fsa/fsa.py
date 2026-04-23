@@ -117,18 +117,20 @@ class FSA:
 
     def D(self, x):
         "Left quotient (Brzozowski derivative) by symbol `x`: { y : x·y ∈ L(self) }."
+        e = self.epsremoval()
         m = FSA()
 
-        e = self.epsremoval()
-        for i,a,j in e.arcs():
+        for i, a, j in e.arcs():
+            m.add(i, a, j)
+        for j in e.stop:
+            m.add_stop(j)
+        # New starts = x-successors of the old starts. The old starts are no
+        # longer start states, so their non-x outgoing arcs are no longer
+        # reachable (hence do not contaminate the derivative).
+        for i in e.start:
+            for j in e.edges[i][x]:
+                m.add_start(j)
 
-            if i in e.start and a == x:
-                m.add(i,eps,j)
-            else:
-                m.add(i,a,j)
-
-        m.start = set(e.start)
-        m.stop = set(e.stop)
         return m
 
     def add(self, i, a, j):
