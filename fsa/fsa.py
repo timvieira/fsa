@@ -46,7 +46,6 @@ class FSA:
         return (frozenset(self.nodes),
                 frozenset(self.start),
                 frozenset(self.stop),
-#                frozenset(self.syms),
                 frozenset(self.arcs()))
 
     def __hash__(self):
@@ -63,7 +62,7 @@ class FSA:
             return f'<{type(self).__name__} states={len(self.nodes)} starts={len(self.start)} stops={len(self.stop)} arcs={sum(1 for _ in self.arcs())}>'
 
     def __str__(self):
-        x = ['{']   # todo: better print; include start/stop
+        x = ['{']
         for s in sorted_robust(self.nodes):
             ss = f'{s}'
             if s in self.start:
@@ -89,11 +88,9 @@ class FSA:
                 fontname='Monospace',
                 fontsize='10',
                 height='.05', width='.05',
-                #margin="0.055,0.042"
                 margin="0,0"
             ),
             edge_attr=dict(
-                #arrowhead='vee',
                 arrowsize='0.3',
                 fontname='Monospace',
                 fontsize='9'
@@ -101,7 +98,8 @@ class FSA:
         )
         f = Integerizer()
 
-        # FIXME: make sure this name is actually unqiue
+        # '<start>' sentinel can't collide: every real node is labeled by
+        # Integerizer, which always yields a decimal-digit string.
         start = '<start>'
         g.node(start, label='', shape='point', height='0', width='0')
         for i in self.start:
@@ -111,7 +109,6 @@ class FSA:
             shape = 'circle'
             if i in self.stop: shape = 'doublecircle'
             label = str(i) if show_label else ''
-            #if i in self.start: label = '*'
             g.node(str(f(i)), label=label, shape=shape)
             for a, j in sorted_robust(self.arcs(i)):
                 g.edge(str(f(i)), str(f(j)), label=html.escape(str(a).replace(' ', '␣')))
@@ -273,10 +270,6 @@ class FSA:
         "Kleene star: L(self)* (zero or more repetitions)."
         return one + self.p()
 
-#    def L(self, s):
-#        assert s in self.nodes
-#        return dfs({s}, self.arcs)
-
     @lru_cache(None)
     def epsremoval(self):
         "Equivalent machine with all ε-transitions eliminated."
@@ -345,7 +338,7 @@ class FSA:
         # distinguishable.
         #
         # Thus, after trimming of M'.d, we have a DFA with no indistinguishable
-        # or unreachable states, which is must minimal.
+        # or unreachable states, which must be minimal.
 
         return self.reverse().det().reverse().det().trim()
 
@@ -385,9 +378,8 @@ class FSA:
         # create new equivalence classes of states
         minstates = {}
         for i, qs in enumerate(P):
-            #minstate = frozenset(qs)
             for q in qs:
-                minstates[q] = i #minstate
+                minstates[q] = i
 
         return self.rename(lambda i: minstates[i]).trim()
 
@@ -452,22 +444,13 @@ class FSA:
     def _dfa_isomorphism(self, other):
         "True iff `self` and `other` are isomorphic as DFAs. Assumes both are minimal."
 
-        # Requires that self and other are minimal DFAs
-
-        # Theorem. If `self` and `other` are graphs with out-degree at most 1, then
-        # the DFA works to determine whether G and H are isomorphic
-
-        # A deterministic machine has exactly one start state
-
-        # Two minimized DFAs are input
-        # If the number of states is differs, these machines cannot be isomorphic
+        # Minimal DFAs have at most one start state; a DFA's per-symbol
+        # out-degree is at most one. Walk both from their starts in lockstep,
+        # building a candidate bijection on states.
         if len(self.nodes) != len(other.nodes): return False
         if len(self.start) == 0: return len(other.start) == 0
 
         assert len(self.start) == 1 and len(other.start) == 1
-
-        #self = self.renumber()
-        #other = other.renumber()
 
         [p] = self.start
         [q] = other.start
@@ -483,7 +466,7 @@ class FSA:
             done.add((p,q))
             for a in syms:
 
-                # presences of the arc has to be the same
+                # presence of the arc must match on both sides
                 if (a in self.edges[p]) != (a in other.edges[q]):
                     return False
 
@@ -604,7 +587,6 @@ class FSA:
     def __floordiv__(self, other):
         "left quotient self//other ≐ {y | ∃x ∈ other: x⋅y ∈ self}"
 
-        # TODO: support NFA/epsilon arcs?
         self = self.epsremoval()
         other = other.epsremoval()
 
