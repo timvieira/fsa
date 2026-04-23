@@ -1,6 +1,10 @@
+import shutil
+import pytest
+
 from fsa import FSA, zero, one
 
 
+@pytest.mark.skipif(shutil.which('dot') is None, reason='Graphviz `dot` binary not installed')
 def test_visualization():
     a,b = map(FSA.lift, 'ab')
     ((a+b).star())._repr_mimebundle_()
