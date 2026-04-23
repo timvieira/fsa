@@ -198,6 +198,110 @@ def test_quotient():
     assert not checker(c)
 
 
+def test_arcs_filtering():
+    "arcs() has three call modes: no-arg, source-only, and (source, label)."
+    m = FSA()
+    m.add(0, 'a', 1).add(0, 'b', 2).add(1, 'a', 1).add(1, 'c', 2)
+
+    # no-arg: all triples
+    assert set(m.arcs()) == {(0, 'a', 1), (0, 'b', 2), (1, 'a', 1), (1, 'c', 2)}
+
+    # source-only: (label, target) pairs from state 0
+    assert set(m.arcs(0)) == {('a', 1), ('b', 2)}
+
+    # (source, label): iter of targets
+    assert set(m.arcs(1, 'a')) == {1}
+    assert set(m.arcs(1, 'c')) == {2}
+    # no arcs from (0, 'c')
+    assert set(m.arcs(0, 'c')) == set()
+
+
+def test_strict_subset():
+    a, b = map(FSA.lift, 'ab')
+
+    # a ⊂ (a | b): strict subset
+    assert a < (a + b)
+    # (a | b) is not a strict subset of itself
+    assert not ((a + b) < (a + b))
+    # b is not a subset of a
+    assert not (b < a)
+
+
+def test_from_string():
+    "Single-string classmethod (distinct from from_strings which takes a list)."
+    m = FSA.from_string('hello')
+    assert 'hello' in m
+    assert 'hell' not in m
+    assert 'helloo' not in m
+    assert '' not in m
+    assert m.equal(FSA.from_strings(['hello']))
+
+
+def test_merge():
+    "merge() folds a set of states into a single representative."
+    a, b = map(FSA.lift, 'ab')
+    # Build (a|b) — two parallel branches sharing start and stop
+    m = a + b
+
+    # Pick two distinct non-start states and merge them. The language shouldn't
+    # shrink; in general it may grow (merges only add edges).
+    before = set(m.arcs())
+    S = set(list(m.stop)[:2]) if len(m.stop) >= 2 else set(list(m.nodes)[:2])
+    merged = m.merge(S)
+    # language preservation: merged language contains original
+    assert m <= merged
+    # fewer states (or same) post-merge
+    assert len(merged.nodes) <= len(m.nodes)
+    # original unchanged
+    assert set(m.arcs()) == before
+
+
+def test_isomorphism_conflict():
+    "Two DFAs that have the same state count but are not isomorphic."
+    a, b = map(FSA.lift, 'ab')
+    sigma = a + b
+    # Both "ends in aa" and "ends in ab" minimize to 3-state DFAs, but they're
+    # non-isomorphic — walking in lockstep from the starts will try to bind the
+    # same self-state to two different other-states.
+    L_aa = sigma.star() * a * a
+    L_ab = sigma.star() * a * b
+    assert not L_aa.equal(L_ab)
+    assert not L_ab.equal(L_aa)
+
+
+try:
+    import semirings  # noqa: F401
+    HAS_SEMIRINGS = True
+except ImportError:
+    HAS_SEMIRINGS = False
+
+
+@pytest.mark.skipif(not HAS_SEMIRINGS, reason='optional semirings package not installed')
+def test_to_regex():
+    from semirings.regex import Symbol
+    a = FSA.lift('a')
+    # L(a) = {a}, regex is just 'a'
+    r = a.to_regex()
+    A = Symbol('a')
+    assert r == A
+
+    # Kleene star: L(a.star()) = a*
+    r = a.star().min().to_regex()
+    # Exact form depends on elimination ordering, but must equal A.star()
+    assert r == A.star()
+
+
+@pytest.mark.skipif(not HAS_SEMIRINGS, reason='optional semirings package not installed')
+def test_to_regex_with_eps_arcs():
+    "to_regex must accept machines that still contain ε-transitions."
+    from fsa.fsa import eps
+    a, b = map(FSA.lift, 'ab')
+    m = a * b  # concatenation injects eps arcs between the two pieces
+    assert any(arc[1] == eps for arc in m.arcs())
+    # Shouldn't raise; the resulting regex should at minimum recognize 'ab'.
+    m.to_regex()
+
+
 if __name__ == '__main__':
     from arsenal import testing_framework
     testing_framework(globals())
