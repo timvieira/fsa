@@ -127,8 +127,17 @@ class FSA:
             if i in self.stop: shape = 'doublecircle'
             label = str(i) if show_label else ''
             g.node(str(f(i)), label=label, shape=shape)
-            for a, j in sorted_robust(self.arcs(i)):
-                g.edge(str(f(i)), str(f(j)), label=html.escape(str(a).replace(' ', '␣')))
+            # Group arcs by target and render parallel edges as a single
+            # edge with a combined "a, b, c" label.
+            by_target = defaultdict(list)
+            for a, j in self.arcs(i):
+                by_target[j].append(a)
+            for j in sorted_robust(by_target):
+                combined = ', '.join(
+                    html.escape(str(a).replace(' ', '␣'))
+                    for a in sorted_robust(by_target[j])
+                )
+                g.edge(str(f(i)), str(f(j)), label=combined)
 
         return g
 
