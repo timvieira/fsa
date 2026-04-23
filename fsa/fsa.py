@@ -56,8 +56,11 @@ class FSA:
         return self.as_tuple() == other.as_tuple()
 
     def __repr__(self):
-#        return f'<{self.__class__.__name__} id={id(self)}>'
-        return repr(self.to_regex())
+        try:
+            return repr(self.to_regex())
+        except ImportError:
+            # to_regex needs the optional `semirings` extra.
+            return f'<{type(self).__name__} states={len(self.nodes)} starts={len(self.start)} stops={len(self.stop)} arcs={sum(1 for _ in self.arcs())}>'
 
     def __str__(self):
         x = ['{']   # todo: better print; include start/stop
