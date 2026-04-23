@@ -198,6 +198,14 @@ def test_quotient():
     assert not checker(c)
 
 
+def test_hash_eq():
+    "FSA hashes by content, so equal machines collapse in sets/dicts."
+    a, b = map(FSA.lift, 'ab')
+    assert hash(a) == hash(FSA.lift('a'))
+    assert len({a, a, FSA.lift('a')}) == 1
+    assert len({a, b}) == 2
+
+
 def test_arcs_filtering():
     "arcs() has three call modes: no-arg, source-only, and (source, label)."
     m = FSA()
