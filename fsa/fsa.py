@@ -4,6 +4,24 @@ from functools import lru_cache
 from graphviz import Digraph
 
 
+def memoize_method(f):
+    """Cache a method's results on the instance, keyed by its args.
+
+    Unlike @lru_cache on a method, this stores the cache in the instance's
+    own namespace, so it's collected when the instance is — no global table
+    retaining every FSA ever passed through. Args must be hashable.
+    """
+    attr = '_memo_' + f.__name__
+    def wrapper(self, *args):
+        cache = self.__dict__.setdefault(attr, {})
+        if args not in cache:
+            cache[args] = f(self, *args)
+        return cache[args]
+    wrapper.__name__ = f.__name__
+    wrapper.__doc__ = f.__doc__
+    return wrapper
+
+
 def dfs(Ps, arcs):
     "Subgraph reachable from seeds `Ps` under the transition callable `arcs(P) -> iter[(label, Q)]`."
     stack = list(Ps)
@@ -188,7 +206,7 @@ class FSA:
         "States that lie on at least one path from a start state."
         return self._accessible(self.start)
 
-    @lru_cache(None)
+    @memoize_method
     def trim(self):
         "Equivalent machine with useless (unreachable or dead-end) states removed."
         c = self.accessible() & self.reverse().accessible()
@@ -269,7 +287,7 @@ class FSA:
         "Kleene star: L(self)* (zero or more repetitions)."
         return one + self.p()
 
-    @lru_cache(None)
+    @memoize_method
     def epsremoval(self):
         "Equivalent machine with all ε-transitions eliminated."
         eps_m = FSA()
@@ -299,7 +317,7 @@ class FSA:
 
         return m
 
-    @lru_cache(None)
+    @memoize_method
     def det(self):
         "Equivalent DFA via the subset (powerset) construction; states are frozensets of the original NFA states."
         self = self.epsremoval()
@@ -434,7 +452,7 @@ class FSA:
 
         return self.rename(lambda i: find[i]).trim()
 
-    min = lru_cache(None)(min_faster)
+    min = memoize_method(min_faster)
 
     def equal(self, other):
         "Language equality: L(self) = L(other)."
