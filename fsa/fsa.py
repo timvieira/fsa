@@ -5,6 +5,7 @@ from graphviz import Digraph
 
 
 def dfs(Ps, arcs):
+    "Subgraph reachable from seeds `Ps` under the transition callable `arcs(P) -> iter[(label, Q)]`."
     stack = list(Ps)
     m = FSA()
     for P in Ps: m.add_start(P)
@@ -20,12 +21,14 @@ def dfs(Ps, arcs):
 
 _frozenset = frozenset
 class frozenset(_frozenset):
+    "frozenset subclass with a stable, sorted repr."
     def __repr__(self):
         return '{%s}' % (','.join(str(x) for x in sorted_robust(self)))
 
 
 
 def sorted_robust(xs):
+    "sorted() that tolerates heterogeneous types by grouping by type name first."
     return sorted(xs, key=lambda x: (type(x).__name__, x))
 
 
@@ -39,6 +42,7 @@ class FSA:
         self.syms = set()
 
     def as_tuple(self):
+        "Canonical hashable representation; backs __hash__ and __eq__."
         return (frozenset(self.nodes),
                 frozenset(self.start),
                 frozenset(self.stop),
@@ -70,9 +74,11 @@ class FSA:
         return '\n'.join(x)
 
     def _repr_mimebundle_(self, *args, **kwargs):
+        "Jupyter rich-display hook; delegates to Graphviz."
         return self.graphviz()._repr_mimebundle_(*args, **kwargs)
 
     def graphviz(self, show_label=True):
+        "Graphviz rendering: starts drawn as incoming arrows, accept states as double circles."
         import html
         g = Digraph(
             graph_attr=dict(rankdir='LR'),
@@ -110,7 +116,7 @@ class FSA:
         return g
 
     def D(self, x):
-        "left derivative"
+        "Left quotient (Brzozowski derivative) by symbol `x`: { y : x·y ∈ L(self) }."
         m = FSA()
 
         e = self.epsremoval()
@@ -141,6 +147,7 @@ class FSA:
         return self
 
     def arcs(self, i=None, a=None):
+        "Iterate the transition relation, optionally restricted by source state `i` and/or label `a`."
         if i is None and a is None:
 
             for i in self.edges:
@@ -163,6 +170,7 @@ class FSA:
             raise NotImplementedError()
 
     def reverse(self):
+        "Machine for the reversed language: L(self.reverse()) = { w[::-1] : w ∈ L(self) }."
         m = FSA()
         for i in self.start:
             m.add_stop(i)
@@ -176,10 +184,12 @@ class FSA:
         return dfs(start, self.arcs).nodes
 
     def accessible(self):
+        "States that lie on at least one path from a start state."
         return self._accessible(self.start)
 
     @lru_cache(None)
     def trim(self):
+        "Equivalent machine with useless (unreachable or dead-end) states removed."
         c = self.accessible() & self.reverse().accessible()
         m = FSA()
         for i in self.start & c:
@@ -192,10 +202,11 @@ class FSA:
         return m
 
     def renumber(self):
+        "Canonicalize state labels to consecutive integers."
         return self.rename(Integerizer())
 
     def rename(self, f):
-        "Note: f is not bijective, states may split/merge."
+        "Equivalent machine with every state label `i` replaced by `f(i)`; non-injective `f` merges states."
         m = FSA()
         for i in self.start:
             m.add_start(f(i))
@@ -206,6 +217,7 @@ class FSA:
         return m
 
     def rename_apart(self, other):
+        "Relabel `self` and `other` so their state sets are disjoint."
         f = Integerizer()
         self = self.rename(lambda i: f((0, i)))
         other = other.rename(lambda i: f((1, i)))
@@ -213,6 +225,7 @@ class FSA:
         return (self, other)
 
     def __mul__(self, other):
+        "Concatenation: L(self) · L(other)."
         m = FSA()
         self, other = self.rename_apart(other)
         m.start = self.start
@@ -227,6 +240,7 @@ class FSA:
         return m
 
     def __add__(self, other):
+        "Union: L(self) ∪ L(other)."
         m = FSA()
         [self, other] = self.rename_apart(other)
         m.start = self.start | other.start
@@ -238,7 +252,7 @@ class FSA:
         return m
 
     def p(self):
-        "self^+"
+        "Kleene plus: L(self)+ (one or more repetitions)."
         m = FSA()
         m.start = set(self.start)
         m.stop = set(self.stop)
@@ -251,7 +265,7 @@ class FSA:
         return m
 
     def star(self):
-        "self^*"
+        "Kleene star: L(self)* (zero or more repetitions)."
         return one + self.p()
 
 #    def L(self, s):
@@ -260,7 +274,7 @@ class FSA:
 
     @lru_cache(None)
     def epsremoval(self):
-
+        "Equivalent machine with all ε-transitions eliminated."
         eps_m = FSA()
         for i,a,j in self.arcs():
             if a == eps:
@@ -290,7 +304,7 @@ class FSA:
 
     @lru_cache(None)
     def det(self):
-
+        "Equivalent DFA via the subset (powerset) construction; states are frozensets of the original NFA states."
         self = self.epsremoval()
 
         def powerarcs(Q):
@@ -331,6 +345,7 @@ class FSA:
         return self.reverse().det().reverse().det().trim()
 
     def min_fast(self):
+        "Minimal equivalent DFA via Hopcroft-style partition refinement (rescans every block each step; see `min_faster` for the indexed version)."
         self = self.det().renumber()
 
         # calculate inverse of transition function (i.e., reverse arcs)
@@ -370,6 +385,7 @@ class FSA:
         return self.rename(lambda i: minstates[i]).trim()
 
     def min_faster(self):
+        "Minimal equivalent DFA via Hopcroft's algorithm, with a block-index (`find`) so only affected partitions are revisited."
         self = self.det().renumber()
 
         # calculate inverse of transition function (i.e., reverse arcs)
@@ -387,29 +403,23 @@ class FSA:
 
         while W:
 
-            A = W.pop()
+            S = W.pop()
             for a in self.syms:
 
-                X = {i for j in A for i in inv[j,a]}
+                # Group pre-images by their current block; this lets us
+                # replace the O(|Y|) superset check `X >= Y` with an
+                # O(1) length comparison.
+                block_members = defaultdict(set)
+                for j in S:
+                    for i in inv[j, a]:
+                        block_members[find[i]].add(i)
 
-                blocks = {find[i] for i in X}
-
-                for block in blocks:
+                for block, YX in block_members.items():
                     Y = P[block]
 
-                    if X >= Y: continue
+                    if len(YX) == len(Y): continue
 
-                    # TODO: use indexing to find nonempty (Y-X).
-                    # Some notes:
-                    #  - To be nonempty we need to find an element i* that is in Y
-                    #    but not in X.  We already have an element i that is in Y
-                    #    and X.
-                    #  - We know that X and Y overlap (thanks to our indexing
-                    #    trick).  Now, we want to filter out cases where X >= Y
-                    #    because they do not need to be split.
-
-                    YX = Y & X
-                    Y_X = Y - X
+                    Y_X = Y - YX
 
                     # we will replace block with the intersection case (no
                     # need to update `find` index for YX elements)
@@ -427,10 +437,11 @@ class FSA:
     min = lru_cache(None)(min_faster)
 
     def equal(self, other):
+        "Language equality: L(self) = L(other)."
         return self.min()._dfa_isomorphism(other.min())
 
     def _dfa_isomorphism(self, other):
-        "Find isomorphism between DFAs (if one exists)."
+        "True iff `self` and `other` are isomorphic as DFAs. Assumes both are minimal."
 
         # Requires that self and other are minimal DFAs
 
@@ -484,6 +495,7 @@ class FSA:
         return self.rename(iso.get) == other
 
     def to_regex(self):
+        "Equivalent regular expression."
         import numpy as np
         from semirings.regex import Symbol
         from semirings.kleene import kleene
@@ -512,7 +524,7 @@ class FSA:
         return start @ kleene(A, Symbol) @ stop
 
     def __and__(self, other):
-        "intersection"
+        "Intersection: L(self) ∩ L(other). States are pairs (q1, q2) from the product construction."
 
         self = self.epsremoval().renumber()
         other = other.epsremoval().renumber()
@@ -534,7 +546,7 @@ class FSA:
         return m
 
     def add_sink(self, syms):
-        "constructs a complete FSA"
+        "Equivalent machine made total over alphabet `syms` by routing missing transitions to a fresh non-accepting sink state."
 
         syms = set(syms)
 
@@ -553,16 +565,17 @@ class FSA:
         return self
 
     def __sub__(self, other):
+        "Language difference: L(self) \\ L(other)."
         return self & other.invert(self.syms | other.syms)
 
     __or__ = __add__
 
     def __xor__(self, other):
-        "Symmetric difference"
+        "Symmetric difference: (L(self) ∪ L(other)) \\ (L(self) ∩ L(other))."
         return (self | other) - (self & other)
 
     def invert(self, syms):
-        "create the complement of the machine"
+        "Complement of the language with respect to alphabet `syms`."
 
         self = self.det().add_sink(syms)
 
@@ -628,12 +641,14 @@ class FSA:
 
     @classmethod
     def lift(cls, x):
+        "Single-symbol machine: accepts exactly the one-symbol string `x`."
         m = cls()
         m.add_start(0); m.add_stop(1); m.add(0,x,1)
         return m
 
     @classmethod
     def from_string(cls, xs):
+        "Linear machine that accepts exactly the string `xs`."
         m = cls()
         m.add_start(xs[:0])
         for i in range(len(xs)):
@@ -643,6 +658,7 @@ class FSA:
 
     @classmethod
     def from_strings(cls, Xs):
+        "Prefix-tree machine that accepts exactly the strings in `Xs`."
         m = cls()
         for xs in Xs:
             m.add_start(xs[:0])
@@ -652,6 +668,7 @@ class FSA:
         return m
 
     def __contains__(self, xs):
+        "Membership test: True iff `xs` is accepted."
         d = self.det()
         [s] = d.start
         for x in xs:
