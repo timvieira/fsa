@@ -87,6 +87,32 @@ def test_min():
     assert len(((one + a) * a.star() * a.star() * a.star() * b).min().nodes) == 2
 
 
+def test_derivative():
+    a, b, x, y = map(FSA.lift, 'abxy')
+
+    # D_a({ax, by}) = {x}  (NOT {x, by} — the non-a-prefixed branch must be dropped)
+    L = a*x + b*y
+    assert L.D('a').equal(x)
+
+    # D_a({a, ab}) = {ε, b}
+    L = a + a*b
+    assert L.D('a').equal(one + b)
+
+    # D_a({ax}) = {x}
+    L = a*x
+    assert L.D('a').equal(x)
+
+    # D over a symbol that doesn't start any word: empty derivative.
+    L = a*x
+    assert L.D('b').equal(zero)
+
+    # D_a(a*) = a*  (once you consume one 'a', any number of 'a's still works)
+    assert a.star().D('a').equal(a.star())
+
+    # D_a(ε) = ∅
+    assert one.D('a').equal(zero)
+
+
 def test_contains():
     a = FSA.lift('a')
 
