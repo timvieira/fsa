@@ -359,7 +359,9 @@ class FSA:
         nonfinal = self.nodes - final
 
         P = [final, nonfinal]
-        W = [final, nonfinal]
+        # Hopcroft: only the smaller side needs to seed W — splits witnessed
+        # by the larger side are redundant.
+        W = [final if len(final) <= len(nonfinal) else nonfinal]
 
         while W:
             A = W.pop()
@@ -399,7 +401,9 @@ class FSA:
         nonfinal = self.nodes - final
 
         P = [final, nonfinal]
-        W = [final, nonfinal]
+        # Hopcroft: only the smaller side needs to seed W — splits witnessed
+        # by the larger side are redundant.
+        W = [final if len(final) <= len(nonfinal) else nonfinal]
 
         find = {i: block for block, elements in enumerate(P) for i in elements}
 
