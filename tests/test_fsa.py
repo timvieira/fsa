@@ -198,6 +198,53 @@ def test_quotient():
     assert not checker(c)
 
 
+def test_homomorphism():
+    a, b, c, x, y = map(FSA.lift, 'abcxy')
+
+    # basic substitution: a ↦ xy, b unchanged → {ab} ↦ {xyb}
+    assert (a * b).homomorphism({'a': x * y}).equal(x * y * b)
+
+    # empty map = identity
+    assert (a * b).homomorphism({}).equal(a * b)
+
+    # erasure (maps to ε): projection-style behavior
+    assert (a * b * c).homomorphism({'b': one}).equal(a * c)
+
+    # map to a non-singleton language: a ↦ (x|y)
+    assert a.homomorphism({'a': x + y}).equal(x + y)
+
+    # composes with itself: (a↦b, then b↦c) == (a↦c)
+    once = a.homomorphism({'a': b})
+    twice = once.homomorphism({'b': c})
+    assert twice.equal(a.homomorphism({'a': c}))
+
+
+def test_inverse_homomorphism():
+    a, b, x, y = map(FSA.lift, 'abxy')
+
+    # L = {ab}, h = {x: a, y: b} → preimage = {xy}
+    L = a * b
+    assert L.inverse_homomorphism({'x': a, 'y': b}).equal(x * y)
+
+    # h(x) = ε; preimage of {ε} under h is x* (any word maps to ε, which ∈ {ε})
+    assert one.inverse_homomorphism({'x': one}).equal(x.star())
+
+    # h(x) = ε; preimage of {a} is empty (no word of x's can spell 'a')
+    assert a.inverse_homomorphism({'x': one}).equal(zero)
+
+    # round-trip inclusion: apply then inverse gives a superset of the original
+    # (exact equality requires h to be injective; here it is)
+    original = x * y
+    h = {'x': a, 'y': b}
+    forward = original.homomorphism(h)       # = {ab}
+    back = forward.inverse_homomorphism(h)   # = {xy}
+    assert back.equal(original)
+
+    # self = a* and h[x] = a* both have self-loops: the product-DFS
+    # re-reaches an already-visited pair, exercising the skip branch
+    assert a.star().inverse_homomorphism({'x': a.star()}).equal(x.star())
+
+
 def test_maybe():
     a = FSA.lift('a')
     m = a.maybe()

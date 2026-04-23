@@ -765,6 +765,65 @@ class FSA:
             return c
         return dp(s0)
 
+    def homomorphism(self, h):
+        """Substitute each arc label `a` with the language `h[a]`.
+
+        `h` maps symbols to FSAs. Symbols not in `h` are kept unchanged
+        (i.e., default is the identity `a ↦ FSA.lift(a)`).
+        """
+        def resolve(a):
+            return h[a] if a in h else FSA.lift(a)
+
+        self = self.renumber()
+        m = FSA()
+        for i in self.start: m.add_start(i)
+        for i in self.stop:  m.add_stop(i)
+
+        # Splice a renamed copy of resolve(a) in place of each arc (i, a, j).
+        # Original state names are ints (from renumber); spliced states are
+        # (arc_index, inner_state) tuples — disjoint by construction.
+        for idx, (i, a, j) in enumerate(self.arcs()):
+            sub = resolve(a).renumber()
+            for p, x, q in sub.arcs():
+                m.add((idx, p), x, (idx, q))
+            for p in sub.start:
+                m.add(i, eps, (idx, p))
+            for q in sub.stop:
+                m.add((idx, q), eps, j)
+        return m
+
+    def inverse_homomorphism(self, h):
+        """Preimage of L(self) under the homomorphism `h`: words `x ∈ (keys of h)*`
+        such that `h[x[0]] · h[x[1]] · ...` intersects L(self).
+
+        The input alphabet of the result is exactly `h.keys()`.
+        """
+        self = self.epsremoval().renumber()
+        m = FSA()
+        for p in self.start: m.add_start(p)
+        for p in self.stop:  m.add_stop(p)
+
+        # For each input symbol a, add an arc (p, a, q) iff the product of
+        # `self` with `h[a]` (synchronized on output alphabet) has a path
+        # from (p, h_start) to (q, h_accept).
+        for a, hap in h.items():
+            hap = hap.epsremoval().renumber()
+            for p in self.nodes:
+                for h_start in hap.start:
+                    stack = [(p, h_start)]
+                    visited = {(p, h_start)}
+                    while stack:
+                        (sp, sh) = stack.pop()
+                        if sh in hap.stop:
+                            m.add(p, a, sp)
+                        for sym, sp_next in self.arcs(sp):
+                            for sh_next in hap.edges[sh][sym]:
+                                succ = (sp_next, sh_next)
+                                if succ not in visited:
+                                    visited.add(succ)
+                                    stack.append(succ)
+        return m
+
     def merge(self, S, name=None):
         "merge states in `S` into a single state."
         if name is None: name = min(S)
