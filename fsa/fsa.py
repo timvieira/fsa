@@ -554,7 +554,7 @@ class FSA:
     def add_sink(self, syms):
         "Equivalent machine made total over alphabet `syms` by routing missing transitions to a fresh non-accepting sink state."
 
-        syms = set(syms)
+        syms = set(syms) - {eps}   # the alphabet of a total DFA cannot contain ε
 
         self = self.renumber()
 
@@ -565,7 +565,6 @@ class FSA:
         for q in self.nodes:
             if q == sink: continue
             for a in syms - set(self.edges[q]):
-                if a == eps: continue  # ignore epsilon
                 self.add(q, a, sink)
 
         return self
