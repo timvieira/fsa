@@ -19,9 +19,8 @@ def dfs(Ps, arcs):
     return m
 
 
-_frozenset = frozenset
-class frozenset(_frozenset):
-    "frozenset subclass with a stable, sorted repr."
+class PrettyFrozenset(frozenset):
+    "frozenset with a stable, sorted repr — used for readable powerstate labels."
     def __repr__(self):
         return '{%s}' % (','.join(str(x) for x in sorted_robust(self)))
 
@@ -307,9 +306,9 @@ class FSA:
 
         def powerarcs(Q):
             for a in self.syms:
-                yield a, frozenset({j for i in Q for j in self.edges[i][a]})
+                yield a, PrettyFrozenset({j for i in Q for j in self.edges[i][a]})
 
-        m = dfs([frozenset(self.start)], powerarcs)
+        m = dfs([PrettyFrozenset(self.start)], powerarcs)
 
         for powerstate in m.nodes:
             if powerstate & self.stop:
