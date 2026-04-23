@@ -1,4 +1,4 @@
-from arsenal import Integerizer, colors
+from arsenal import Integerizer
 from collections import defaultdict
 from functools import lru_cache
 from graphviz import Digraph
