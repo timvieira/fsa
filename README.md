@@ -7,7 +7,7 @@ from fsa import FSA
 
 a, b, c = map(FSA.lift, 'abc')
 
-(a * b * c).min()
+a * b * c
 ```
 
 ![](docs/img/abc.svg)
