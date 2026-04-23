@@ -198,6 +198,45 @@ def test_quotient():
     assert not checker(c)
 
 
+def test_maybe():
+    a = FSA.lift('a')
+    m = a.maybe()
+    assert '' in m
+    assert 'a' in m
+    assert 'aa' not in m
+    assert m.equal(a + one)
+
+
+def test_shuffle_product():
+    a, b, c = map(FSA.lift, 'abc')
+
+    # {a} ⧢ {b} = {ab, ba}
+    m = a.shuffle_product(b)
+    assert set(m) == {('a', 'b'), ('b', 'a')}
+
+    # identity: shuffling with {ε} is a no-op
+    m = a.shuffle_product(one)
+    assert m.equal(a)
+    m = one.shuffle_product(a)
+    assert m.equal(a)
+
+    # shuffling with ∅ is ∅
+    assert a.shuffle_product(zero).equal(zero)
+
+    # commutativity (as languages): A ⧢ B = B ⧢ A
+    assert a.shuffle_product(b).equal(b.shuffle_product(a))
+
+    # |ab ⧢ c| = C(3,1) = 3 interleavings
+    m = (a * b).shuffle_product(c)
+    assert set(m) == {('a', 'b', 'c'), ('a', 'c', 'b'), ('c', 'a', 'b')}
+
+    # cardinality of w1 ⧢ w2 = C(4,2) = 6 when the alphabets are disjoint
+    # (same-alphabet shuffles collapse — e.g., (ab) ⧢ (ab) = {abab, aabb})
+    d = FSA.lift('d')
+    assert (a * b).shuffle_product(c * d).cardinality() == 6
+    assert (a * b).shuffle_product(a * b).cardinality() == 2
+
+
 def test_is_dfa():
     a, b = map(FSA.lift, 'ab')
     # `a` itself is already a DFA (one start, one arc)

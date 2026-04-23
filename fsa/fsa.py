@@ -287,6 +287,10 @@ class FSA:
         "Kleene star: L(self)* (zero or more repetitions)."
         return one + self.p()
 
+    def maybe(self):
+        "Optional: L(self) ∪ {ε} — the '?' operator."
+        return self + one
+
     @memoize_method
     def epsremoval(self):
         "Equivalent machine with all ε-transitions eliminated."
@@ -548,6 +552,30 @@ class FSA:
                 product_arcs)
 
         # final states
+        for q1 in self.stop:
+            for q2 in other.stop:
+                m.add_stop((q1, q2))
+
+        return m
+
+    def shuffle_product(self, other):
+        "Shuffle (interleaving) product: all interleavings of a word in L(self) with a word in L(other)."
+
+        self = self.epsremoval().renumber()
+        other = other.epsremoval().renumber()
+
+        def shuffle_arcs(Q):
+            (q1, q2) = Q
+            # step on the left side, leaving the right state fixed
+            for a, j1 in self.arcs(q1):
+                yield a, (j1, q2)
+            # step on the right side, leaving the left state fixed
+            for a, j2 in other.arcs(q2):
+                yield a, (q1, j2)
+
+        m = dfs({(q1, q2) for q1 in self.start for q2 in other.start},
+                shuffle_arcs)
+
         for q1 in self.stop:
             for q2 in other.stop:
                 m.add_stop((q1, q2))
