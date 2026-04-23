@@ -40,4 +40,6 @@ FSA.from_strings(['cat', 'car', 'dog']).min()
 
 Languages compose as expressions: `+` union, `*` concatenation, `&` intersection, `-` difference, `^` symmetric difference, `.star()` / `.p()` for Kleene star/plus, `<=` subset, `in` membership. `equal()` checks language equality by minimizing both sides and testing DFA isomorphism. States and symbols are arbitrary Python objects.
 
+Iterate the language in shortlex order with `enumerate()` (or just `for x in m:`) — the generator is lazy, so this works even when the language is infinite. `cardinality()` returns a non-negative int or `math.inf`. `is_dfa()` checks structural determinism.
+
 The implementation favors clarity over raw performance — it's meant to be read. Algorithms follow their textbook formulations closely so you can match the code against the definitions: subset construction for `det`, three minimization algorithms (`min_brzozowski`, `min_fast`, and `min_faster` — Hopcroft; `min` aliases the fastest), and state-elimination for `to_regex` (available if you install the `[regex]` extra).

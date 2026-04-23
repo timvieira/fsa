@@ -684,6 +684,59 @@ class FSA:
             [s] = t
         return (s in d.stop)
 
+    def is_dfa(self):
+        "True iff this machine is already a DFA: ≤1 start, no ε-arcs, deterministic transitions."
+        if len(self.start) > 1: return False
+        for i in self.nodes:
+            for a, targets in self.edges[i].items():
+                if a == eps: return False
+                if len(targets) > 1: return False
+        return True
+
+    def enumerate(self):
+        "Yield accepted strings (tuples of symbols) in shortlex order. Infinite for infinite languages."
+        d = self.det().trim()
+        if not d.start: return
+        [s0] = d.start
+        syms = sorted_robust(d.syms)
+        frontier = [((), s0)]
+        while frontier:
+            # emit accepting paths at this length, in lex order
+            for path, s in frontier:
+                if s in d.stop:
+                    yield path
+            # extend every frontier path by one symbol
+            next_frontier = []
+            for path, s in frontier:
+                for a in syms:
+                    targets = d.edges[s][a]
+                    if targets:
+                        [t] = targets
+                        next_frontier.append((path + (a,), t))
+            frontier = next_frontier
+
+    __iter__ = enumerate
+
+    def cardinality(self):
+        "|L(self)| — a non-negative int, or math.inf for infinite languages."
+        import math
+        d = self.det().trim()
+        if not d.start: return 0
+        [s0] = d.start
+        IN_PROGRESS = object()
+        count = {}
+        def dp(s):
+            if s in count:
+                if count[s] is IN_PROGRESS: return math.inf
+                return count[s]
+            count[s] = IN_PROGRESS
+            c = 1 if s in d.stop else 0
+            for _, t in d.arcs(s):
+                c += dp(t)
+            count[s] = c
+            return c
+        return dp(s0)
+
     def merge(self, S, name=None):
         "merge states in `S` into a single state."
         if name is None: name = min(S)

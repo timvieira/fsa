@@ -198,6 +198,69 @@ def test_quotient():
     assert not checker(c)
 
 
+def test_is_dfa():
+    a, b = map(FSA.lift, 'ab')
+    # `a` itself is already a DFA (one start, one arc)
+    assert a.is_dfa()
+    # union of two atomic machines is an NFA: two start states
+    assert not (a + b).is_dfa()
+    # concatenation introduces ε-arcs
+    assert not (a * b).is_dfa()
+    # but det() makes it a DFA
+    assert (a * b).det().is_dfa()
+    # minimized machines are always DFAs
+    assert ((a + b).star() * a).min().is_dfa()
+    # empty and one are DFAs
+    assert zero.is_dfa()
+    assert one.is_dfa()
+
+    # directly nondeterministic: a state with two 'a'-targets
+    nondet = FSA()
+    nondet.add_start(0).add(0, 'a', 1).add(0, 'a', 2).add_stop(1).add_stop(2)
+    assert not nondet.is_dfa()
+
+
+def test_enumerate():
+    a = FSA.lift('a')
+
+    # finite: shortlex order (length then lex within length)
+    m = FSA.from_strings(['a', 'b', 'ab', 'ba', 'aa'])
+    got = list(m.enumerate())
+    assert got == [('a',), ('b',), ('a', 'a'), ('a', 'b'), ('b', 'a')]
+
+    # empty language
+    assert list(zero.enumerate()) == []
+    # {ε}
+    assert list(one.enumerate()) == [()]
+
+    # infinite: never terminates — take a prefix
+    it = a.star().enumerate()
+    prefix = [next(it) for _ in range(4)]
+    assert prefix == [(), ('a',), ('a', 'a'), ('a', 'a', 'a')]
+
+    # __iter__ is an alias
+    assert list(iter(FSA.from_strings(['ab']))) == [('a', 'b')]
+
+
+def test_cardinality():
+    import math
+    a, b = map(FSA.lift, 'ab')
+
+    assert zero.cardinality() == 0
+    assert one.cardinality() == 1
+    assert a.cardinality() == 1
+    assert (a + b).cardinality() == 2
+    assert FSA.from_strings(['a', 'b', 'ab']).cardinality() == 3
+
+    # infinite
+    assert a.star().cardinality() == math.inf
+    assert ((a + b).star() * a).cardinality() == math.inf
+
+    # cardinality agrees with enumerate for finite languages
+    m = FSA.from_strings(['a', 'b', 'ab', 'ba', 'aa'])
+    assert m.cardinality() == len(list(m.enumerate()))
+
+
 def test_hash_eq():
     "FSA hashes by content, so equal machines collapse in sets/dicts."
     a, b = map(FSA.lift, 'ab')

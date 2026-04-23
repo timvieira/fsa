@@ -12,15 +12,8 @@ def run_min(m, algo):
 
 
 def assert_is_dfa(m):
-    "A minimized DFA should have exactly one start (or be empty) and no nondeterministic arcs."
-    # empty languages may have 0 start states
-    assert len(m.start) <= 1, f'expected at most one start state, got {len(m.start)}'
-    for i in m.nodes:
-        for a, targets in m.edges[i].items():
-            assert a != eps, f'minimized DFA should have no epsilon arcs, found {i} -ε-> ...'
-            assert len(targets) == 1, (
-                f'minimized DFA should be deterministic; {i} -{a}-> {targets}'
-            )
+    "Minimization must produce a DFA."
+    assert m.is_dfa(), f'expected a DFA, got:\n{m}'
 
 
 def assert_iso(a, b, msg=''):
