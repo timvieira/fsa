@@ -87,6 +87,34 @@ def test_min():
     assert len(((one + a) * a.star() * a.star() * a.star() * b).min().nodes) == 2
 
 
+def test_contains():
+    a = FSA.lift('a')
+
+    # exact membership
+    m = FSA.from_strings(['ab'])
+    assert 'ab' in m
+    assert 'abc' not in m     # regression: prefix 'ab' is accepted but 'abc' is not
+    assert 'abcd' not in m
+    assert 'a' not in m       # proper prefix of an accepted string
+    assert '' not in m
+
+    # language with multiple strings
+    m = FSA.from_strings(['ab', 'abc'])
+    assert 'ab' in m
+    assert 'abc' in m
+    assert 'abcd' not in m    # extends past an accepted string
+    assert 'abx' not in m     # diverges after an accepted prefix
+
+    # empty string
+    assert '' in one
+    assert '' not in a
+
+    # Kleene star accepts ε and repetitions
+    assert '' in a.star()
+    assert 'aaa' in a.star()
+    assert 'aab' not in a.star()
+
+
 #def test_fsa_to_regex():
 #    from semirings.regex import Symbol
 #    a, b = map(FSA.lift, 'ab')
